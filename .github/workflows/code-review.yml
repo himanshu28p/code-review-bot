@@ -31,4 +31,5 @@ jobs:
           REPO_NAME: ${{ github.event.repository.name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         run: node scripts/review.js
