@@ -8,12 +8,7 @@ const BASE_SHA = process.env.BASE_SHA;
 const HEAD_SHA = process.env.HEAD_SHA;
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 
-const REVIEWABLE_EXTENSIONS = [
-  ".js", ".ts", ".py", ".rb",
-  ".go", ".java", ".php", ".cs",
-  ".cpp", ".c", ".sh", ".sql"
-];
-
+const REVIEWABLE_EXTENSIONS = [".js",".ts",".py",".rb",".go",".java",".php",".cs",".cpp",".c",".sh",".sql"];
 const MAX_DIFF_CHARS = 20000;
 
 function getDiff() {
@@ -37,7 +32,6 @@ function filterDiff(rawDiff) {
       });
     })
     .join("\n");
-
   if (filtered.length > MAX_DIFF_CHARS) {
     return filtered.slice(0, MAX_DIFF_CHARS) + "\n\n[... diff truncated ...]";
   }
@@ -47,31 +41,26 @@ function filterDiff(rawDiff) {
 async function reviewWithGroq(diff) {
   const systemMsg = "You are a senior software engineer doing a security-focused code review. " +
     "Identify security vulnerabilities, hardcoded secrets, SQL injection, XSS, bad practices, and critical bugs. " +
-    "Format your response with: ## Summary (Risk: LOW/MEDIUM/HIGH/CRITICAL), ## Security Issues, ## Bugs, ## Verdict";
-
-  const userMsg = "Review this git diff:\n" + diff;
+    "Format your response with: ## Summary, ## Security Issues, ## Bugs, ## Verdict";
 
   const requestBody = {
     model: "llama-3.3-70b-versatile",
     messages: [
       { role: "system", content: systemMsg },
-      { role: "user", content: userMsg }
+      { role: "user", content: "Review this git diff:\n" + diff }
     ],
     max_tokens: 2048,
     temperature: 0.3
   };
 
-  const response = await fetch(
-    "https://api.groq.com/openai/v1/chat/completions",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + GROQ_API_KEY
-      },
-      body: JSON.stringify(requestBody)
-    }
-  );
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + GROQ_API_KEY
+    },
+    body: JSON.stringify(requestBody)
+  });
 
   if (!response.ok) {
     const err = await response.text();
@@ -84,7 +73,6 @@ async function reviewWithGroq(diff) {
 
 async function postReviewComment(reviewText) {
   const body = "## AI Security Code Review\n\n" + reviewText + "\n\n---\n*Powered by Groq + Llama 3.3 (free)*";
-
   const url = "https://api.github.com/repos/" + REPO_OWNER + "/" + REPO_NAME + "/issues/" + PR_NUMBER + "/comments";
 
   const response = await fetch(url, {
@@ -110,25 +98,14 @@ async function main() {
     console.error("GROQ_API_KEY is not set!");
     process.exit(1);
   }
-
   console.log("Reviewing PR #" + PR_NUMBER);
-
   const rawDiff = getDiff();
-  if (!rawDiff.trim()) {
-    console.log("No diff found.");
-    return;
-  }
-
+  if (!rawDiff.trim()) { console.log("No diff found."); return; }
   const diff = filterDiff(rawDiff);
-  if (!diff.trim()) {
-    console.log("No reviewable files.");
-    return;
-  }
-
+  if (!diff.trim()) { console.log("No reviewable files."); return; }
   console.log("Sending to Groq...");
   const review = await reviewWithGroq(diff);
   console.log("\n-- Review --\n" + review);
-
   await postReviewComment(review);
 }
 
